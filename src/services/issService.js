@@ -1,12 +1,12 @@
-/* ISS Service – talks to open-notify.org and wheretheiss.at (for SSL fallback) */
+/* ISS Service – talks to wheretheiss.at (HTTPS) and open-notify (HTTP fallback for local) */
 
-const OPEN_NOTIFY_BASE = 'http://api.open-notify.org';
 const WHERE_THE_ISS_BASE = 'https://api.wheretheiss.at/v1/satellites/25544';
+const OPEN_NOTIFY_BASE = 'http://api.open-notify.org';
 const GEOCODE_BASE = 'https://nominatim.openstreetmap.org';
 
 export async function fetchISSPosition() {
+  // Always try the HTTPS-compatible API first
   try {
-    // Try Where the ISS At (Supports HTTPS/SSL)
     const response = await fetch(WHERE_THE_ISS_BASE);
     if (response.ok) {
       const data = await response.json();
@@ -14,27 +14,36 @@ export async function fetchISSPosition() {
         lat: parseFloat(data.latitude),
         lng: parseFloat(data.longitude),
         timestamp: data.timestamp,
-        speed: data.velocity // Optional: this API provides velocity!
+        speed: data.velocity 
       };
     }
   } catch (e) {
-    console.warn('WhereTheISS failed, falling back to Open Notify');
+    console.warn('WheretheISS failed:', e);
   }
 
-  // Fallback to Open Notify (HTTP only)
-  const response = await fetch(`${OPEN_NOTIFY_BASE}/iss-now.json`);
-  if (!response.ok) throw new Error('Failed to fetch ISS position');
-  const data = await response.json();
-  return {
-    lat: parseFloat(data.iss_position.latitude),
-    lng: parseFloat(data.iss_position.longitude),
-    timestamp: data.timestamp,
-  };
+  // Only use Open Notify on HTTP or Localhost
+  if (window.location.protocol === 'http:' || window.location.hostname === 'localhost') {
+    try {
+      const response = await fetch(`${OPEN_NOTIFY_BASE}/iss-now.json`);
+      if (response.ok) {
+        const data = await response.json();
+        return {
+          lat: parseFloat(data.iss_position.latitude),
+          lng: parseFloat(data.iss_position.longitude),
+          timestamp: data.timestamp,
+        };
+      }
+    } catch (e) {
+      console.warn('Open Notify failed:', e);
+    }
+  }
+
+  throw new Error('All ISS tracking services failed. Please check your connection or try again later.');
 }
 
 export async function fetchPeopleInSpace() {
   try {
-    // Use a proxy for Open Notify if we are on HTTPS, otherwise direct
+    // Open Notify astros is HTTP only. Use proxy for HTTPS.
     const url = `${OPEN_NOTIFY_BASE}/astros.json`;
     const finalUrl = window.location.protocol === 'https:' 
       ? `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}` 
@@ -49,7 +58,6 @@ export async function fetchPeopleInSpace() {
     };
   } catch (error) {
     console.error('Astronaut fetch error:', error);
-    // Return mock data if all fails so the UI doesn't break
     return { number: 0, people: [] };
   }
 }
@@ -58,7 +66,12 @@ export async function reverseGeocode(lat, lng) {
   try {
     const response = await fetch(
       `${GEOCODE_BASE}/reverse?lat=${lat}&lon=${lng}&format=json`,
-      { headers: { 'Accept-Language': 'en' } }
+      { 
+        headers: { 
+          'Accept-Language': 'en',
+          'User-Agent': 'SpaceWatch-Dashboard-Project' // Nominatim requires a User-Agent
+        } 
+      }
     );
     if (!response.ok) return getOceanName(lat, lng);
     const data = await response.json();
@@ -96,7 +109,7 @@ export function calculateSpeed(pos1, pos2, timeDiffSeconds) {
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos(toRad(pos1.lat)) *
-      Math.cos(toRad(pos2.lat)) *
+      Math.cos(toRad(pos1.lat)) *
       Math.sin(dLon / 2) *
       Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));

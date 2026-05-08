@@ -1,11 +1,11 @@
-/* News Service – uses GNews API */
+/* News Service – uses NewsData.io API */
 
-const GNEWS_BASE = 'https://gnews.io/api/v4';
+const NEWSDATA_BASE = 'https://newsdata.io/api/1/latest';
 const API_KEY = import.meta.env.VITE_NEWS_API_KEY;
 const CACHE_DURATION = 15 * 60 * 1000; // 15 minutes
 
 const CATEGORIES = [
-  { id: 'general', label: 'General', topic: 'general' },
+  { id: 'top', label: 'Top', topic: 'top' },
   { id: 'technology', label: 'Technology', topic: 'technology' },
   { id: 'science', label: 'Science', topic: 'science' },
   { id: 'health', label: 'Health', topic: 'health' },
@@ -40,7 +40,7 @@ function setCache(topic, articles) {
       JSON.stringify({ timestamp: Date.now(), articles })
     );
   } catch {
-    // storage full – ignore
+    // storage full
   }
 }
 
@@ -50,24 +50,26 @@ export async function fetchNewsByCategory(topic, max = 10, forceRefresh = false)
     if (cached) return cached;
   }
 
-  const url = `${GNEWS_BASE}/top-headlines?topic=${topic}&lang=en&max=${max}&apikey=${API_KEY}`;
+  // NewsData.io uses 'category' parameter. For 'top', we can omit or use specific categories.
+  const categoryParam = topic === 'top' ? '' : `&category=${topic}`;
+  const url = `${NEWSDATA_BASE}?apikey=${API_KEY}&language=en${categoryParam}`;
+  
   const response = await fetch(url);
-
   if (!response.ok) {
     const err = await response.json().catch(() => ({}));
-    throw new Error(err.errors?.[0] || `News API error: ${response.status}`);
+    throw new Error(err.message || `NewsData error: ${response.status}`);
   }
 
   const data = await response.json();
-  const articles = (data.articles || []).map((a) => ({
+  const articles = (data.results || []).slice(0, max).map((a) => ({
     title: a.title || 'Untitled',
-    description: a.description || '',
+    description: a.description || 'No description available.',
     content: a.content || '',
-    url: a.url || '#',
-    image: a.image || null,
-    publishedAt: a.publishedAt || new Date().toISOString(),
-    source: a.source?.name || 'Unknown',
-    author: a.source?.name || 'Staff Reporter',
+    url: a.link || '#',
+    image: a.image_url || null,
+    publishedAt: a.pubDate || new Date().toISOString(),
+    source: a.source_id || 'Global News',
+    author: (a.creator && a.creator[0]) || 'Staff Reporter',
   }));
 
   setCache(topic, articles);
@@ -75,19 +77,19 @@ export async function fetchNewsByCategory(topic, max = 10, forceRefresh = false)
 }
 
 export async function searchNews(query, max = 10) {
-  const url = `${GNEWS_BASE}/search?q=${encodeURIComponent(query)}&lang=en&max=${max}&apikey=${API_KEY}`;
+  const url = `${NEWSDATA_BASE}?apikey=${API_KEY}&q=${encodeURIComponent(query)}&language=en`;
   const response = await fetch(url);
   if (!response.ok) throw new Error(`Search failed: ${response.status}`);
   const data = await response.json();
-  return (data.articles || []).map((a) => ({
+  return (data.results || []).slice(0, max).map((a) => ({
     title: a.title || 'Untitled',
-    description: a.description || '',
+    description: a.description || 'No description available.',
     content: a.content || '',
-    url: a.url || '#',
-    image: a.image || null,
-    publishedAt: a.publishedAt || new Date().toISOString(),
-    source: a.source?.name || 'Unknown',
-    author: a.source?.name || 'Staff Reporter',
+    url: a.link || '#',
+    image: a.image_url || null,
+    publishedAt: a.pubDate || new Date().toISOString(),
+    source: a.source_id || 'Search Result',
+    author: (a.creator && a.creator[0]) || 'NewsDesk',
   }));
 }
 
