@@ -102,7 +102,9 @@ export function saveChatHistory(messages) {
   try {
     const trimmed = messages.slice(-MAX_STORED);
     localStorage.setItem(CHAT_KEY, JSON.stringify(trimmed));
-  } catch {}
+  } catch (e) {
+    console.warn('Failed to save chat history:', e);
+  }
 }
 
 export function clearChatHistory() {

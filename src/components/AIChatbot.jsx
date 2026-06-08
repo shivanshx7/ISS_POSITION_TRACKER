@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { MessageSquare, X, Send, Trash2, Bot, User } from 'lucide-react';
 import { askAI, loadChatHistory, saveChatHistory, clearChatHistory } from '../services/aiService';
 import toast from 'react-hot-toast';
@@ -12,14 +12,16 @@ const AIChatbot = ({ issData, newsData }) => {
 
   useEffect(() => {
     const history = loadChatHistory();
-    if (history.length === 0) {
-      setMessages([{
-        role: 'assistant',
-        content: "Hello! I'm SpaceWatch AI. I can answer questions about the ISS location, speed, the crew in space, and the latest news articles on your dashboard. How can I help you today?"
-      }]);
-    } else {
-      setMessages(history);
-    }
+    setTimeout(() => {
+      if (history.length === 0) {
+        setMessages([{
+          role: 'assistant',
+          content: "Hello Commander! I'm SpaceWatch AI, your direct downlink terminal. Ask me anything about the ISS tracking status, telemetry rates, current space crew, or latest news articles on your feed."
+        }]);
+      } else {
+        setMessages(history);
+      }
+    }, 0);
   }, []);
 
   useEffect(() => {
@@ -46,10 +48,10 @@ const AIChatbot = ({ issData, newsData }) => {
       });
       setMessages(prev => [...prev, { role: 'assistant', content: response }]);
     } catch (error) {
-      toast.error('AI error: ' + error.message);
+      toast.error('Downlink failure: ' + error.message);
       setMessages(prev => [...prev, { 
         role: 'assistant', 
-        content: "Sorry, I encountered an error while processing your request. Please check your API token." 
+        content: "Downlink connection failed. Please verify that VITE_AI_TOKEN is correctly set in your environment file." 
       }]);
     } finally {
       setIsTyping(false);
@@ -60,9 +62,9 @@ const AIChatbot = ({ issData, newsData }) => {
     clearChatHistory();
     setMessages([{
       role: 'assistant',
-      content: "Chat cleared. I'm ready for new questions!"
+      content: "Chat log cleared. Terminal listening. Ask me about ISS or news telemetry."
     }]);
-    toast.success('Chat history cleared');
+    toast.success('Chat terminal logs cleared');
   };
 
   return (
@@ -75,53 +77,68 @@ const AIChatbot = ({ issData, newsData }) => {
           position: 'fixed',
           bottom: '30px',
           right: '30px',
-          width: '60px',
-          height: '60px',
+          width: '56px',
+          height: '56px',
           borderRadius: '50%',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          boxShadow: 'var(--shadow-lg)',
+          boxShadow: '0 8px 30px rgba(6, 182, 212, 0.35)',
+          border: 'none',
           zIndex: 9999,
-          padding: 0
+          padding: 0,
+          cursor: 'pointer',
+          transition: 'var(--transition)'
         }}
+        className="floating-chat-btn"
       >
-        {isOpen ? <X size={28} /> : <MessageSquare size={28} />}
+        {isOpen ? <X size={24} /> : <MessageSquare size={24} />}
       </button>
 
       {/* Chat Window */}
       {isOpen && (
-        <div className="glass-card" style={{
+        <div className="glass-card chatbot-window-container" style={{
           position: 'fixed',
           bottom: '100px',
           right: '30px',
           width: '380px',
-          height: '550px',
+          height: '560px',
           maxWidth: 'calc(100vw - 60px)',
           display: 'flex',
           flexDirection: 'column',
           zIndex: 9999,
           boxShadow: 'var(--shadow-lg)',
           overflow: 'hidden',
-          animation: 'slide-up 0.3s ease'
+          borderColor: 'var(--border-color)'
         }}>
           {/* Header */}
           <div style={{
-            padding: '15px 20px',
+            padding: '14px 20px',
             background: 'var(--gradient-primary)',
             color: 'white',
             display: 'flex',
             justifyContent: 'space-between',
-            alignItems: 'center'
+            alignItems: 'center',
+            boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <Bot size={20} />
-              <div style={{ fontWeight: 700, fontSize: '16px' }}>SpaceWatch AI</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{
+                background: 'rgba(255,255,255,0.15)',
+                padding: '6px',
+                borderRadius: '6px'
+              }}>
+                <Bot size={16} />
+              </div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: '14px', fontFamily: 'var(--font-heading)', letterSpacing: '0.5px' }}>SpaceWatch Assistant</div>
+                <div style={{ fontSize: '9px', opacity: 0.8, textTransform: 'uppercase', letterSpacing: '1px' }}>AI Downlink Terminal</div>
+              </div>
             </div>
             <button 
               onClick={handleClear} 
-              style={{ background: 'transparent', border: 'none', color: 'white', cursor: 'pointer', opacity: 0.8 }}
-              title="Clear Chat"
+              style={{ background: 'transparent', border: 'none', color: 'white', cursor: 'pointer', opacity: 0.7, padding: '4px', transition: 'var(--transition)' }}
+              title="Clear Terminal Log"
+              className="btn-clear-chat"
             >
               <Trash2 size={16} />
             </button>
@@ -134,100 +151,173 @@ const AIChatbot = ({ issData, newsData }) => {
             padding: '20px',
             display: 'flex',
             flexDirection: 'column',
-            gap: '15px',
+            gap: '16px',
             background: 'var(--bg-secondary)'
-          }}>
-            {messages.map((msg, i) => (
-              <div key={i} style={{
-                display: 'flex',
-                justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
-                gap: '10px'
-              }}>
-                {msg.role === 'assistant' && (
-                  <div style={{ 
-                    width: '30px', height: '30px', borderRadius: '50%', 
-                    background: 'var(--accent-blue)', display: 'flex', 
-                    alignItems: 'center', justifyContent: 'center', 
-                    flexShrink: 0, marginTop: '5px' 
-                  }}>
-                    <Bot size={16} color="white" />
-                  </div>
-                )}
-                <div style={{
-                  maxWidth: '80%',
-                  padding: '12px 16px',
-                  borderRadius: msg.role === 'user' ? '18px 18px 2px 18px' : '18px 18px 18px 2px',
-                  background: msg.role === 'user' ? 'var(--accent-blue)' : 'var(--bg-card)',
-                  color: msg.role === 'user' ? 'white' : 'var(--text-primary)',
-                  fontSize: '14px',
-                  lineHeight: '1.4',
-                  boxShadow: 'var(--shadow-sm)',
-                  border: msg.role === 'assistant' ? '1px solid var(--border-color)' : 'none'
+          }}
+          className="chat-message-list-pane"
+          >
+            {messages.map((msg, i) => {
+              const isUser = msg.role === 'user';
+              return (
+                <div key={i} style={{
+                  display: 'flex',
+                  justifyContent: isUser ? 'flex-end' : 'flex-start',
+                  gap: '10px'
                 }}>
-                  {msg.content}
-                </div>
-                {msg.role === 'user' && (
-                  <div style={{ 
-                    width: '30px', height: '30px', borderRadius: '50%', 
-                    background: 'var(--accent-purple)', display: 'flex', 
-                    alignItems: 'center', justifyContent: 'center', 
-                    flexShrink: 0, marginTop: '5px' 
+                  {!isUser && (
+                    <div style={{ 
+                      width: '28px', height: '28px', borderRadius: '8px', 
+                      background: 'rgba(6, 182, 212, 0.1)', border: '1px solid rgba(6, 182, 212, 0.25)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', 
+                      flexShrink: 0, marginTop: '2px' 
+                    }}>
+                      <Bot size={14} color="var(--accent-cyan)" />
+                    </div>
+                  )}
+                  <div style={{
+                    maxWidth: '78%',
+                    padding: '10px 14px',
+                    borderRadius: isUser ? '14px 14px 2px 14px' : '14px 14px 14px 2px',
+                    background: isUser ? 'var(--gradient-primary)' : 'rgba(255, 255, 255, 0.03)',
+                    color: isUser ? '#fafafa' : 'var(--text-primary)',
+                    fontSize: '13px',
+                    lineHeight: '1.45',
+                    boxShadow: isUser ? '0 4px 10px rgba(6, 182, 212, 0.15)' : 'none',
+                    border: isUser ? 'none' : '1px solid var(--border-color)'
                   }}>
-                    <User size={16} color="white" />
+                    {msg.content}
                   </div>
-                )}
-              </div>
-            ))}
+                  {isUser && (
+                    <div style={{ 
+                      width: '28px', height: '28px', borderRadius: '8px', 
+                      background: 'rgba(168, 85, 247, 0.1)', border: '1px solid rgba(168, 85, 247, 0.25)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', 
+                      flexShrink: 0, marginTop: '2px' 
+                    }}>
+                      <User size={14} color="var(--accent-purple)" />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            
             {isTyping && (
               <div style={{ display: 'flex', gap: '10px' }}>
-                <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: 'var(--accent-blue)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Bot size={16} color="white" />
+                <div style={{ 
+                  width: '28px', height: '28px', borderRadius: '8px', 
+                  background: 'rgba(6, 182, 212, 0.1)', border: '1px solid rgba(6, 182, 212, 0.25)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center' 
+                }}>
+                  <Bot size={14} color="var(--accent-cyan)" />
                 </div>
-                <div className="card" style={{ padding: '12px 16px', borderRadius: '18px 18px 18px 2px', display: 'flex', gap: '4px' }}>
-                  <div className="pulse-dot"></div>
-                  <div className="pulse-dot" style={{ animationDelay: '0.2s' }}></div>
-                  <div className="pulse-dot" style={{ animationDelay: '0.4s' }}></div>
+                <div className="card" style={{ 
+                  padding: '10px 14px', 
+                  borderRadius: '14px 14px 14px 2px', 
+                  display: 'flex', 
+                  alignItems: 'center',
+                  gap: '4px',
+                  background: 'rgba(255,255,255,0.03)',
+                  borderColor: 'var(--border-color)' 
+                }}>
+                  <div className="pulse-dot-typing"></div>
+                  <div className="pulse-dot-typing" style={{ animationDelay: '0.2s' }}></div>
+                  <div className="pulse-dot-typing" style={{ animationDelay: '0.4s' }}></div>
                 </div>
               </div>
             )}
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Input */}
+          {/* Input Panel */}
           <form onSubmit={handleSend} style={{
-            padding: '15px',
-            background: 'var(--bg-card)',
+            padding: '14px',
+            background: 'var(--bg-primary)',
             borderTop: '1px solid var(--border-color)',
             display: 'flex',
-            gap: '10px'
+            gap: '8px',
+            alignItems: 'center'
           }}>
             <input 
               type="text" 
-              placeholder="Ask about ISS or News..."
+              placeholder="Query orbital assistant..."
               value={input}
               onChange={(e) => setInput(e.target.value)}
               style={{
                 flex: 1,
-                background: 'var(--bg-secondary)',
+                background: 'rgba(255, 255, 255, 0.03)',
                 border: '1px solid var(--border-color)',
-                borderRadius: '20px',
-                padding: '10px 15px',
+                borderRadius: 'var(--radius-md)',
+                padding: '8px 14px',
                 color: 'var(--text-primary)',
                 outline: 'none',
-                fontSize: '14px'
+                fontSize: '13px',
+                height: '38px',
+                transition: 'var(--transition)'
               }}
+              className="hover-glow"
             />
-            <button type="submit" className="btn-primary" style={{ width: '40px', height: '40px', borderRadius: '50%', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Send size={18} />
+            <button 
+              type="submit" 
+              className="btn-primary" 
+              style={{ 
+                width: '38px', 
+                height: '38px', 
+                borderRadius: 'var(--radius-md)', 
+                padding: 0, 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                flexShrink: 0
+              }}
+            >
+              <Send size={15} />
             </button>
           </form>
         </div>
       )}
 
       <style>{`
-        @keyframes slide-up {
-          from { transform: translateY(20px); opacity: 0; }
+        .floating-chat-btn {
+          box-shadow: 0 6px 20px rgba(6, 182, 212, 0.25) !important;
+          transition: var(--transition) !important;
+        }
+
+        .floating-chat-btn:hover {
+          transform: scale(1.08) rotate(5deg) !important;
+          box-shadow: 0 10px 30px rgba(6, 182, 212, 0.45) !important;
+        }
+
+        .chatbot-window-container {
+          animation: terminal-slide-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .btn-clear-chat:hover {
+          opacity: 1 !important;
+          color: var(--accent-red);
+          transform: scale(1.1);
+        }
+
+        .pulse-dot-typing {
+          width: 5px;
+          height: 5px;
+          border-radius: 50%;
+          background: var(--text-secondary);
+          animation: dot-glow 1.2s infinite ease-in-out;
+        }
+
+        @keyframes dot-glow {
+          0%, 100% { opacity: 0.3; transform: scale(0.8); }
+          50% { opacity: 1; transform: scale(1.2); }
+        }
+
+        @keyframes terminal-slide-up {
+          from { transform: translateY(30px); opacity: 0; }
           to { transform: translateY(0); opacity: 1; }
+        }
+
+        /* Message scroll styling */
+        .chat-message-list-pane::-webkit-scrollbar {
+          width: 4px;
         }
       `}</style>
     </>
